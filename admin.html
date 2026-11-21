@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AfterHours | Admin & Analytics Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Chart.js CDN for Pie Chart Analysis -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>AfterHours</h1>
+      <span>Infrastructure Maintenance & Pie Chart Analytics</span>
+    </div>
+    <nav aria-label="Admin Navigation">
+      <a href="index.html">Live Safety Map</a>
+      <a href="admin.html" class="active">Admin & Analytics</a>
+      <button id="logoutBtn" class="nav-btn" style="display:none;" onclick="logout()">Logout</button>
+    </nav>
+  </header>
+
+  <!-- Admin Login Section -->
+  <section id="loginSection" class="login-card">
+    <h2>Admin Authentication</h2>
+    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.25rem;">
+      Sign in to view hazard analytics and update repair statuses.
+    </p>
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" value="admin" required />
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" value="afterhours2026" required />
+      </div>
+      <button type="submit" class="btn btn-primary">Login to Dashboard</button>
+    </form>
+  </section>
+
+  <!-- Protected Admin & Pie Analysis Dashboard -->
+  <main id="dashboardSection" class="admin-container" style="display:none;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+      <h2>Nighttime Hazard Analytics & Tracking</h2>
+      <button class="action-btn btn-delete" onclick="resetDemoData()">Reset Demo Data</button>
+    </div>
+
+    <!-- Top Summary Cards -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <h3>Total Reports</h3>
+        <p id="totalCount">0</p>
+      </div>
+      <div class="stat-card">
+        <h3>Pending Repairs</h3>
+        <p id="pendingCount" style="color: var(--danger-red);">0</p>
+      </div>
+      <div class="stat-card">
+        <h3>Resolved Issues</h3>
+        <p id="resolvedCount" style="color: var(--safe-green);">0</p>
+      </div>
+    </div>
+
+    <!-- Pie Chart Analysis Section -->
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h3>1. Hazards by Category (Pie Analysis)</h3>
+        <div class="chart-wrapper">
+          <canvas id="categoryPieChart"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <h3>2. Repair Status Ratio (Pending vs. Resolved)</h3>
+        <div class="chart-wrapper">
+          <canvas id="statusPieChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reports Management Table -->
+    <table>
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>Description & Coordinates</th>
+          <th>Photo Evidence</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="adminTableBody"></tbody>
+    </table>
+  </main>
+
+  <script>
+    const STORAGE_KEY = 'afterhours_reports_v1';
+    const AUTH_KEY = 'afterhours_admin_logged_in';
+    let categoryChartInstance = null;
+    let statusChartInstance = null;
+
+    function getReports() {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    }
+
+    function saveReports(reports) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
+    }
+
+    function checkAuthUI() {
+      const isLoggedIn = sessionStorage.getItem(AUTH_KEY) === 'true';
+      document.getElementById('loginSection').style.display = isLoggedIn ? 'none' : 'block';
+      document.getElementById('dashboardSection').style.display = isLoggedIn ? 'block' : 'none';
+      document.getElementById('logoutBtn').style.display = isLoggedIn ? 'inline-block' : 'none';
+      if (isLoggedIn) renderDashboard();
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const user = document.getElementById('username').value.trim();
+      const pass = document.getElementById('password').value.trim();
+
+      if (user === 'admin' && pass === 'afterhours2026') {
+        sessionStorage.setItem(AUTH_KEY, 'true');
+        checkAuthUI();
+      } else {
+        alert('Invalid credentials. Use admin / afterhours2026');
+      }
+    });
+
+    function logout() {
+      sessionStorage.removeItem(AUTH_KEY);
+      checkAuthUI();
+    }
+
+    // Render Dynamic Pie Charts using Chart.js
+    function renderPieCharts(reports) {
+      // Count reports per category
+      const categoryCounts = {};
+      reports.forEach(r => {
+        categoryCounts[r.category] = (categoryCounts[r.category] || 0) + 1;
+      });
+
+      const pendingCount = reports.filter(r => r.status === 'Pending').length;
+      const resolvedCount = reports.filter(r => r.status === 'Resolved').length;
+
+      // Destroy previous chart instances before redrawing
+      if (categoryChartInstance) categoryChartInstance.destroy();
+      if (statusChartInstance) statusChartInstance.destroy();
+
+      // Chart 1: Category Breakdown Pie Chart
+      const ctx1 = document.getElementById('categoryPieChart').getContext('2d');
+      categoryChartInstance = new Chart(ctx1, {
+        type: 'pie',
+        data: {
+          labels: Object.keys(categoryCounts),
+          datasets: [{
+            data: Object.values(categoryCounts),
+            backgroundColor: ['#f59e0b', '#ef4444', '#38bdf8', '#a855f7', '#10b981'],
+            borderColor: '#151c2c',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#f8fafc', font: { size: 11 } } }
+          }
+        }
+      });
+
+      // Chart 2: Pending vs Resolved Pie Chart
+      const ctx2 = document.getElementById('statusPieChart').getContext('2d');
+      statusChartInstance = new Chart(ctx2, {
+        type: 'pie',
+        data: {
+          labels: ['Pending Repairs', 'Resolved Issues'],
+          datasets: [{
+            data: [pendingCount, resolvedCount],
+            backgroundColor: ['#ef4444', '#10b981'],
+            borderColor: '#151c2c',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#f8fafc', font: { size: 12 } } }
+          }
+        }
+      });
+    }
+
+    function renderDashboard() {
+      const reports = getReports();
+
+      document.getElementById('totalCount').textContent = reports.length;
+      document.getElementById('pendingCount').textContent = reports.filter(r => r.status === 'Pending').length;
+      document.getElementById('resolvedCount').textContent = reports.filter(r => r.status === 'Resolved').length;
+
+      renderPieCharts(reports);
+
+      const tbody = document.getElementById('adminTableBody');
+      tbody.innerHTML = '';
+
+      reports.forEach(report => {
+        const isPending = report.status === 'Pending';
+        const nextStatus = isPending ? 'Resolved' : 'Pending';
+        const photoCell = report.photo
+          ? `<img src="${report.photo}" alt="Evidence" style="width:60px; height:45px; object-fit:cover; border-radius:4px;" />`
+          : `<span style="color: var(--text-muted);">No photo</span>`;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${report.category}</strong></td>
+          <td>
+            <div>${report.description}</div>
+            <small style="color: var(--text-muted);">Lat: ${report.lat}, Lng: ${report.lng}</small>
+          </td>
+          <td>${photoCell}</td>
+          <td>
+            <span class="badge ${isPending ? 'badge-pending' : 'badge-resolved'}">
+              ${report.status}
+            </span>
+          </td>
+          <td>
+            <button class="action-btn btn-resolve" onclick="toggleStatus(${report.id}, '${nextStatus}')">
+              Mark ${nextStatus}
+            </button>
+            <button class="action-btn btn-delete" onclick="deleteReport(${report.id})">
+              Delete
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function toggleStatus(id, newStatus) {
+      const reports = getReports().map(r => r.id === id ? { ...r, status: newStatus } : r);
+      saveReports(reports);
+      renderDashboard();
+    }
+
+    function deleteReport(id) {
+      if (!confirm('Delete this report permanently?')) return;
+      const reports = getReports().filter(r => r.id !== id);
+      saveReports(reports);
+      renderDashboard();
+    }
+
+    function resetDemoData() {
+      localStorage.removeItem(STORAGE_KEY);
+      window.location.href = 'index.html';
+    }
+
+    checkAuthUI();
+  </script>
+</body>
+</html>
