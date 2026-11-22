@@ -10,9 +10,18 @@
 <body>
   <header>
     <div class="brand">
-      <h1>AfterHours</h1>
-      <span>Nighttime Urban Mobility & Infrastructure Awareness</span>
+      <div class="brand-badge">🌙 NIGHT WATCH</div>
+      <div>
+        <h1>AfterHours</h1>
+        <span>Nighttime Urban Mobility & Infrastructure Awareness</span>
+      </div>
     </div>
+
+    <div class="header-stats">
+      <span id="liveClock" class="clock-pill">00:00:00</span>
+      <span id="activeHazardBadge" class="hazard-pill">⚠️ 0 Active Hazards</span>
+    </div>
+
     <nav aria-label="Primary Navigation">
       <a href="index.html" class="active">Live Safety Map</a>
       <a href="admin.html">Admin & Analytics</a>
@@ -21,13 +30,24 @@
 
   <main class="container">
     <aside class="sidebar">
-      <!-- Live Proximity Check Banner -->
+      <!-- Live Proximity & Route Check Banner -->
       <div id="proximityBox" class="proximity-alert safe" aria-live="polite">
-        <strong>Route Safety Check:</strong> Click the map or start Live GPS to scan within 500m for nighttime hazards.
+        <strong>Route Safety Check:</strong> Click anywhere on a road or start Live GPS to scan within 500m.
       </div>
 
       <!-- Live GPS Telemetry Indicator -->
       <div id="gpsStatusBox" class="gps-status"></div>
+
+      <!-- Route Line Tool -->
+      <div class="route-box">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>🛣️ Check Walking / Commute Route</strong>
+          <button type="button" id="routeModeBtn" class="mini-btn">Draw Route</button>
+        </div>
+        <p id="routeHint" style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">
+          Click "Draw Route" then click Start & Destination on the map to check road safety.
+        </p>
+      </div>
 
       <h2>Report Nighttime Hazard</h2>
       <p class="subtitle">Pin a dark street, broken light, or unsafe stop to alert night commuters.</p>
@@ -46,7 +66,7 @@
 
         <div class="form-group">
           <label for="description">Description & Route Notes</label>
-          <textarea id="description" name="description" rows="3" placeholder="e.g., Streetlights out near 4th Cross; advise taking Main Road instead." required></textarea>
+          <textarea id="description" name="description" rows="2" placeholder="e.g., Streetlights out near 4th Cross; advise taking Main Road instead." required></textarea>
         </div>
 
         <div class="form-group">
