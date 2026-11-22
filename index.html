@@ -6,6 +6,62 @@
   <title>AfterHours | Nighttime Urban Mobility & Safety Map</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="style.css" />
+  <style>
+    /* Floating Search & Quick City Bar over the Map */
+    .map-controls-overlay {
+      position: absolute;
+      top: 15px;
+      left: 55px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: min(460px, calc(100% - 75px));
+    }
+    .map-search-bar {
+      display: flex;
+      gap: 6px;
+      background: rgba(21, 28, 44, 0.95);
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid #2a3650;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+    }
+    .map-search-bar input {
+      flex: 1;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.9rem;
+    }
+    .map-search-bar button {
+      background: #f59e0b;
+      color: #000;
+      border: none;
+      padding: 0 1rem;
+      border-radius: 6px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .city-quick-pills {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .city-pill {
+      background: rgba(15, 23, 42, 0.92);
+      color: #f8fafc;
+      border: 1px solid #38bdf8;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .city-pill:hover {
+      background: #38bdf8;
+      color: #000;
+    }
+  </style>
 </head>
 <body>
   <header>
@@ -19,7 +75,7 @@
 
     <div class="header-stats">
       <span id="liveClock" class="clock-pill">--:--:--</span>
-      <span id="activeHazardBadge" class="hazard-pill">⚠️ 3 Active Hazards</span>
+      <span id="activeHazardBadge" class="hazard-pill">⚠️ 0 Active Hazards</span>
     </div>
 
     <nav aria-label="Primary Navigation">
@@ -31,7 +87,7 @@
   <main class="container">
     <aside class="sidebar">
       <div id="proximityBox" class="proximity-alert safe" aria-live="polite">
-        <strong>Route Safety Check:</strong> Click anywhere on a road or start Live GPS to scan within 500m.
+        <strong>Route Safety Check:</strong> Jump to Nanjangud, Mysuru, or Bengaluru—or scan your GPS within 500m.
       </div>
 
       <div id="gpsStatusBox" class="gps-status"></div>
@@ -42,7 +98,7 @@
           <button type="button" id="routeModeBtn" class="mini-btn">Draw Route</button>
         </div>
         <p id="routeHint" style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">
-          Click "Draw Route" then click Start & Destination on the map to check road safety.
+          Click "Draw Route" then click Start & Destination on any road to check safety.
         </p>
       </div>
 
@@ -63,11 +119,11 @@
 
         <div class="form-group">
           <label for="description">Description & Route Notes</label>
-          <textarea id="description" name="description" rows="2" placeholder="e.g., Streetlights out near 4th Cross; advise taking Main Road instead." required></textarea>
+          <textarea id="description" name="description" rows="2" placeholder="e.g., Streetlights out near highway junction; advise taking main road." required></textarea>
         </div>
 
         <div class="form-group">
-          <label>Location Coordinates (GPS or Map Click)</label>
+          <label>Location Coordinates (GPS, Search, or Map Click)</label>
           <div class="gps-btn-row">
             <button type="button" id="locateBtn" class="btn btn-secondary">Pin Current GPS</button>
             <button type="button" id="liveTrackBtn" class="btn btn-live">Start Live GPS</button>
@@ -88,6 +144,19 @@
     </aside>
 
     <section style="position: relative; height: 100%; min-height: 500px;" aria-label="Interactive Safety Map">
+      <!-- Search Bar + Quick City Jump Pills -->
+      <div class="map-controls-overlay">
+        <div class="map-search-bar">
+          <input type="text" id="placeSearchInput" placeholder="Search Nanjangud, Mysuru, Bengaluru, or any street..." />
+          <button type="button" id="placeSearchBtn">Search</button>
+        </div>
+        <div class="city-quick-pills">
+          <button type="button" class="city-pill" onclick="jumpToCity(12.1180, 76.6805, 'Nanjangud Corridor')">📍 Nanjangud</button>
+          <button type="button" class="city-pill" onclick="jumpToCity(12.3051, 76.6551, 'Mysuru City')">📍 Mysuru</button>
+          <button type="button" class="city-pill" onclick="jumpToCity(12.9255, 77.5005, 'Bengaluru Mysore Rd')">📍 Bengaluru</button>
+        </div>
+      </div>
+
       <div id="map" style="width: 100%; height: 100%; min-height: 500px;"></div>
       <div class="map-legend">
         <strong>Route Safety Legend</strong>
@@ -100,46 +169,77 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    const STORAGE_KEY = 'afterhours_reports_v1';
+    const STORAGE_KEY = 'afterhours_reports_v2';
 
+    // Pre-seeded hazards across Nanjangud, Mysuru, and Bengaluru
     function initializeData() {
       if (!localStorage.getItem(STORAGE_KEY)) {
         const sampleReports = [
+          // Nanjangud Locations
           {
             id: 101,
             category: 'Broken Streetlight',
-            description: 'Three consecutive streetlights out near the bus bay. Very dark.',
+            description: 'NH-766 stretch near Nanjangud Town Bus Stand has 4 non-working streetlights after 8 PM.',
+            lat: 12.1185,
+            lng: 76.6802,
+            photo: null,
+            status: 'Pending'
+          },
+          {
+            id: 102,
+            category: 'Dark Stretch / Blind Spot',
+            description: 'Unlit approach road connecting Nanjangud Railway Station to college road.',
+            lat: 12.1152,
+            lng: 76.6768,
+            photo: null,
+            status: 'Pending'
+          },
+          {
+            id: 103,
+            category: 'Damaged Footpath',
+            description: 'Footpath tiles repaired near Kapila Bridge junction with new LED lights.',
+            lat: 12.1235,
+            lng: 76.6820,
+            photo: null,
+            status: 'Resolved'
+          },
+          // Mysuru Locations
+          {
+            id: 104,
+            category: 'Unsafe Transit Stop',
+            description: 'Suburban Bus Stand outer bay lacks proper lighting for late-evening commuters.',
+            lat: 12.3118,
+            lng: 76.6592,
+            photo: null,
+            status: 'Pending'
+          },
+          {
+            id: 105,
+            category: 'Broken Streetlight',
+            description: 'Dimly lit pedestrian crossing near Mysuru–Nanjangud Ring Road junction.',
+            lat: 12.2755,
+            lng: 76.6502,
+            photo: null,
+            status: 'Pending'
+          },
+          // Bengaluru Locations
+          {
+            id: 106,
+            category: 'Broken Streetlight',
+            description: 'Three consecutive streetlights out near Mysore Road bus bay. Very dark.',
             lat: 12.9237,
             lng: 77.4987,
             photo: null,
             status: 'Pending'
           },
           {
-            id: 102,
+            id: 107,
             category: 'Damaged Footpath',
-            description: 'Open drain slab near metro exit, hard to spot at night.',
+            description: 'Open drain slab fixed near Kengeri Metro exit.',
             lat: 12.9279,
             lng: 77.5021,
             photo: null,
             status: 'Resolved'
-          },
-          {
-            id: 103,
-            category: 'Unsafe Transit Stop',
-            description: 'Bus shelter has no overhead light and zero visibility after 9 PM.',
-            lat: 12.9251,
-            lng: 77.5045,
-            photo: null,
-            status: 'Pending'
-          },
-          {
-            id: 104,
-            category: 'Dark Stretch / Blind Spot',
-            description: 'Tree branches blocking streetlight along the college back gate road.',
-            lat: 12.9222,
-            lng: 77.5012,
-            photo: null,
-            status: 'Pending'
           }
         ];
         localStorage.setItem(STORAGE_KEY, JSON.stringify(sampleReports));
@@ -167,7 +267,8 @@
     setInterval(updateHeaderStatus, 1000);
     updateHeaderStatus();
 
-    const map = L.map('map').setView([12.9255, 77.5005], 15);
+    // Start centered on Nanjangud Corridor
+    const map = L.map('map').setView([12.1180, 76.6805], 15);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors',
@@ -242,7 +343,7 @@
       }
     }
 
-    function setLocation(lat, lng, isLiveGps = false) {
+    function setLocation(lat, lng, isLiveGps = false, customLabel = null) {
       document.getElementById('lat').value = lat.toFixed(6);
       document.getElementById('lng').value = lng.toFixed(6);
 
@@ -250,7 +351,7 @@
       if (safetyCircle) map.removeLayer(safetyCircle);
 
       const markerOptions = isLiveGps ? { icon: createLiveGpsIcon() } : {};
-      const label = isLiveGps ? 'Live GPS Location (500m Safety Scan)' : 'Pinned Location (500m Safety Scan)';
+      const label = customLabel || (isLiveGps ? 'Live GPS Location (500m Safety Scan)' : 'Pinned Location (500m Safety Scan)');
 
       selectedPin = L.marker([lat, lng], markerOptions).addTo(map).bindPopup(label).openPopup();
 
@@ -264,6 +365,45 @@
 
       checkRouteProximity(lat, lng);
     }
+
+    // One-click Jump to Nanjangud, Mysuru, or Bengaluru
+    window.jumpToCity = function(lat, lng, cityName) {
+      map.setView([lat, lng], 15);
+      setLocation(lat, lng, false, `📍 ${cityName} (500m Safety Scan)`);
+    };
+
+    // Free OpenStreetMap Nominatim Geocoding Search (Prioritizes India / Karnataka)
+    async function searchPlace() {
+      const query = document.getElementById('placeSearchInput').value.trim();
+      if (!query) return;
+
+      const btn = document.getElementById('placeSearchBtn');
+      btn.textContent = '...';
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&countrycodes=in&q=${encodeURIComponent(query)}&limit=1`);
+        const results = await res.json();
+        if (results.length === 0) {
+          alert('Location not found. Try adding "Nanjangud", "Mysuru", or "Bengaluru" to your search.');
+        } else {
+          const lat = parseFloat(results[0].lat);
+          const lng = parseFloat(results[0].lon);
+          map.setView([lat, lng], 15);
+          setLocation(lat, lng, false, `📍 ${results[0].display_name.split(',')[0]} (500m Scan)`);
+        }
+      } catch (err) {
+        alert('Search failed. Check your internet connection.');
+      } finally {
+        btn.textContent = 'Search';
+      }
+    }
+
+    document.getElementById('placeSearchBtn').addEventListener('click', searchPlace);
+    document.getElementById('placeSearchInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        searchPlace();
+      }
+    });
 
     const routeModeBtn = document.getElementById('routeModeBtn');
     const routeHint = document.getElementById('routeHint');
@@ -282,7 +422,7 @@
       } else {
         routeModeBtn.textContent = 'Draw Route';
         routeModeBtn.style.background = '#f59e0b';
-        routeHint.textContent = 'Click "Draw Route" then click Start & Destination on the map to check road safety.';
+        routeHint.textContent = 'Click "Draw Route" then click Start & Destination on any road to check safety.';
       }
     });
 
@@ -333,7 +473,7 @@
           map.setView([latitude, longitude], 16);
           setLocation(latitude, longitude, true);
         },
-        () => alert('GPS blocked by browser/PC settings. Click anywhere directly on a road on the map!')
+        () => alert('GPS blocked by browser/PC settings. Use the city buttons, Search bar, or click on a road!')
       );
     });
 
@@ -365,7 +505,7 @@
             gpsStatusBox.innerHTML = `📡 <strong>Live GPS Active</strong> | Accuracy: ±${Math.round(accuracy)}m`;
           },
           () => {
-            gpsStatusBox.innerHTML = '⚠️ Desktop PC GPS unavailable. Click anywhere on the map to test.';
+            gpsStatusBox.innerHTML = '⚠️ Desktop PC GPS unavailable. Use the Search bar or click on the map.';
           },
           { enableHighAccuracy: true, maximumAge: 5000 }
         );
@@ -414,7 +554,7 @@
       const lat = parseFloat(document.getElementById('lat').value);
       const lng = parseFloat(document.getElementById('lng').value);
       if (isNaN(lat) || isNaN(lng)) {
-        return alert('Please click on a road on the map or use GPS to pin the location first.');
+        return alert('Please search an area, click on a road, or use GPS to pin the location first.');
       }
 
       const category = document.getElementById('category').value;
